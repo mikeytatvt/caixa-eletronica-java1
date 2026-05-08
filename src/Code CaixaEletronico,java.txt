@@ -1,0 +1,150 @@
+public class CaixaEletronico implements ICaixaEletronico {
+	
+    // Matriz 6x2 que simula o gaveteiro do caixa:
+    // coluna 0 = valor da cédula (100, 50, 20...)
+    // coluna 1 = quantidade física disponível dessa cédula no caixa
+    private int[][] cedulas = {
+        {100, 100},
+        {50, 200},
+        {20, 300},
+        {10, 350},
+        {5, 450},
+        {2, 500}
+    };
+    
+    // Valor mínimo aceitável antes de emitir alerta para o operador
+    private int cotaMinima = 1000;
+    
+    // Armazena as transações realizadas no caixa
+    private String historico = "";
+
+    // Calcula a soma de todo o dinheiro armazenado (valor * quantidade de cada nota)
+    @Override
+    public String pegaValorTotalDisponivel() {
+        int total = 0;
+        for (int i = 0; i < cedulas.length; i++) {
+            total += cedulas[i][0] * cedulas[i][1];
+        }
+
+        return "Valor total disponível no caixa: R$ " + total;
+    }
+
+    // Lógica principal para efetuar o saque com as notas disponíveis
+    @Override
+    public String sacar(Integer valor) {
+
+        int valorOriginal = valor;
+        // Vetor que registrará quantas notas de cada tipo serão entregues ao cliente
+        int[] notasSacadas = new int[6];
+        int totalCedulas = 0;
+
+        // Tenta abater o valor começando sempre das notas mais altas (índice 0 = 100)
+        for (int i = 0; i < cedulas.length; i++) {
+
+            int nota = cedulas[i][0];
+            int quantidadeDisponivel = cedulas[i][1];
+
+            // Enquanto o valor restante for maior que a nota atual e houver notas na gaveta
+            while (valor >= nota && quantidadeDisponivel > 0) {
+                valor -= nota;
+                quantidadeDisponivel--;
+                notasSacadas[i]++;
+                totalCedulas++;
+            }
+        }
+
+        // Se sobrou algum valor que não pôde ser atendido pelas notas existentes (ex: pedir R$ 3 e só ter notas de R$ 2 e R$ 5)
+        if (valor != 0) {
+            return "Saque não realizado por falta de cédulas.";
+        }
+
+        // Validação de limite máximo de notas por operação (evitar bocal muito cheio)
+        if (totalCedulas > 30) {
+            return "Saque não permitido. Limite de 30 cédulas excedido.";
+        }
+            
+        // Agora que sabemos que o saque é possível, atualizamos de fato a quantidade do caixa
+        for (int i = 0; i < cedulas.length; i++) {
+            cedulas[i][1] -= notasSacadas[i];
+        }
+
+        // Monta a string de resposta mostrando as notas dispensadas
+        String resposta = "Saque realizado com sucesso!\n\n";
+        for (int i = 0; i < notasSacadas.length; i++) {
+            if (notasSacadas[i] > 0) {
+                resposta += "R$ " + cedulas[i][0] + " -> " + notasSacadas[i] + " notas\n";
+            }
+        }
+
+        resposta += "\nTotal de cédulas: " + totalCedulas;
+        
+        // Verifica se é necessário chamar manutenção
+        if (calcularTotalCaixa() < cotaMinima) {
+            resposta += "\n\nCaixa Vazio: Chame o Operador";
+        }
+
+        // Guarda o saque no histórico interno do terminal
+        historico += "Saque de R$ " + valorOriginal 
+                + " | Saldo atual do caixa: R$ " + calcularTotalCaixa() + "\n";
+                
+        return resposta;
+    }
+    
+    // Retorna uma lista detalhando quantas notas restam em cada gaveta
+    @Override
+    public String pegaRelatorioCedulas() {
+        String resposta = "";
+        for (int i = 0; i < cedulas.length; i++) {
+            resposta += "Cédula R$ " + cedulas[i][0] 
+                     + " - Quantidade: " + cedulas[i][1] + "\n";
+        }
+
+        return resposta;
+    }
+    
+    // Permite que o operador alimente o caixa com mais notas
+    @Override
+    public String reposicaoCedulas(Integer cedula, Integer quantidade) {
+        for (int i = 0; i < cedulas.length; i++) {
+            // Encontra a cédula correta e soma a nova quantidade
+            if (cedulas[i][0] == cedula) {
+                cedulas[i][1] += quantidade;
+                return "Reposição realizada com sucesso!";
+            }
+        }
+
+        return "Cédula inválida.";
+    }
+
+    // Configura o valor mínimo antes do caixa emitir alerta de falta de dinheiro
+    @Override
+    public String armazenaCotaMinima(Integer minimo) {
+        cotaMinima = minimo;
+        return "Cota mínima armazenada com sucesso!";
+    }  
+    
+    // Método auxiliar privado para calcular o total em dinheiro no momento (usado internamente)
+    private int calcularTotalCaixa() {
+        int total = 0;
+        for (int i = 0; i < cedulas.length; i++) {
+            total += cedulas[i][0] * cedulas[i][1];
+        }
+
+        return total;
+    }
+    
+    // Devolve o histórico completo de transações da máquina
+    public String pegarHistorico() {
+        if (historico.equals("")) {
+            return "Nenhuma transação realizada.";
+        }
+
+        return "Histórico de transações:\n\n" + historico;
+    }
+    
+    // Ponto de entrada do Caixa Eletrônico que invoca a interface Gráfica
+    public static void main(String[] args) {
+        GUI janela = new GUI(CaixaEletronico.class);
+        janela.show(); // Obs: Em versões mais novas do Java recomenda-se janela.setVisible(true);
+    }
+}

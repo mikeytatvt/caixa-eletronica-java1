@@ -1,0 +1,192 @@
+import java.util.*;
+import java.text.SimpleDateFormat;
+
+// Classe que representa a estrutura de uma conta bancária
+class Conta {
+    private String nome;
+    private int senha;
+    private double saldo;
+    private List<String> historico; // Armazena o registro das transações
+
+    // Construtor para inicializar os dados da conta ao criá-la
+    public Conta(String nome, int senha, double saldoInicial) {
+        this.nome = nome;
+        this.senha = senha;
+        this.saldo = saldoInicial;
+        this.historico = new ArrayList<>();
+    }
+
+    // Retorna o nome do titular da conta
+    public String getNome() {
+        return nome;
+    }
+
+    // Verifica se a senha informada corresponde à senha da conta
+    public boolean autenticar(int senha) {
+        return this.senha == senha;
+    }
+
+    // Método auxiliar para obter a data e hora atuais formatadas
+    private String dataAtual() {
+        return new SimpleDateFormat("dd/MM/yyyy HH:mm").format(new Date());
+    }
+
+    // Realiza um depósito, validando se o valor é positivo
+    public void depositar(double valor) {
+        if (valor <= 0) {
+            System.out.println("Digite um valor válido para depósito.");
+            return;
+        }
+
+        saldo += valor;
+        // Registra a transação no histórico
+        historico.add(dataAtual() + " | Depósito de R$ " + formatar(valor));
+        System.out.println("Depósito realizado com sucesso!");
+    }
+
+    // Realiza um saque, validando se o valor é positivo e se há saldo suficiente
+    public void sacar(double valor) {
+        if (valor <= 0) {
+            System.out.println("Digite um valor válido para saque.");
+            return;
+        }
+
+        if (valor > saldo) {
+            System.out.println("Saldo insuficiente.");
+            return;
+        }
+
+        saldo -= valor;
+        // Registra a transação no histórico
+        historico.add(dataAtual() + " | Saque de R$ " + formatar(valor));
+        System.out.println("Saque realizado com sucesso!");
+    }
+
+    // Imprime o saldo atual formatado
+    public void mostrarSaldo() {
+        System.out.println("Seu saldo atual é: R$ " + formatar(saldo));
+    }
+
+    // Exibe todas as movimentações registradas na lista de histórico
+    public void mostrarHistorico() {
+        System.out.println("\nHistórico de movimentações:");
+        if (historico.isEmpty()) {
+            System.out.println("Nenhuma movimentação realizada ainda.");
+            return;
+        }
+
+        historico.forEach(System.out::println);
+    }
+
+    // Formata o valor double para duas casas decimais
+    private String formatar(double valor) {
+        return String.format("%.2f", valor);
+    }
+}
+
+// Classe principal que gerencia o fluxo do aplicativo via console
+public class BancoApp {
+
+    private static List<Conta> contas = new ArrayList<>();
+    private static Scanner sc = new Scanner(System.in);
+
+    public static void main(String[] args) {
+        iniciarContas(); // Pré-carrega algumas contas no sistema
+        
+        System.out.println("=================================");
+        System.out.println("        SISTEMA BANCÁRIO");
+        System.out.println("=================================");
+
+        // Tenta autenticar o usuário
+        Conta conta = realizarLogin();
+        if (conta != null) {
+            exibirMenu(conta); // Se o login for bem-sucedido, exibe as opções
+        } else {
+            System.out.println("Não foi possível entrar. Verifique seus dados.");
+        }
+
+        sc.close();
+    }
+
+    // Criação de contas fictícias para testes do sistema
+    private static void iniciarContas() {
+        contas.add(new Conta("Kayky", 1234, 1000));
+        contas.add(new Conta("Teste", 4321, 500));
+    }
+
+    // Solicita os dados do usuário e busca na lista de contas
+    private static Conta realizarLogin() {
+        System.out.print("Nome: ");
+        String nome = sc.nextLine();
+
+        System.out.print("Senha: ");
+        int senha = sc.nextInt();
+        sc.nextLine(); // Limpa o buffer do teclado
+        
+        // Percorre as contas para verificar correspondência de nome e senha
+        for (Conta conta : contas) {
+            if (conta.getNome().equalsIgnoreCase(nome) && conta.autenticar(senha)) {
+                return conta; // Retorna a conta caso autentique com sucesso
+            }
+        }
+
+        return null; // Retorna nulo se não encontrar ou a senha estiver incorreta
+    }
+
+    // Loop principal de interação com o usuário autenticado
+    private static void exibirMenu(Conta conta) {
+        int opcao;
+        do {
+            mostrarOpcoes(conta.getNome());
+            opcao = sc.nextInt();
+            
+            // Redireciona para o método adequado baseado na escolha do usuário
+            switch (opcao) {
+                case 1:
+                    conta.mostrarSaldo();
+                    break;
+                case 2:
+                    realizarDeposito(conta);
+                    break;
+                case 3:
+                    realizarSaque(conta);
+                    break;
+                case 4:
+                    conta.mostrarHistorico();
+                    break;
+                case 5:
+                    System.out.println("Até logo!");
+                    break;
+                default:
+                    System.out.println("Opção inválida.");
+            }
+
+        } while (opcao != 5);
+    }
+
+    // Imprime o menu de opções na tela
+    private static void mostrarOpcoes(String nome) {
+        System.out.println("\n---------------------------------");
+        System.out.println("Olá, " + nome + "! O que deseja fazer?");
+        System.out.println("1 - Ver saldo");
+        System.out.println("2 - Depositar");
+        System.out.println("3 - Sacar");
+        System.out.println("4 - Ver histórico");
+        System.out.println("5 - Sair");
+        System.out.print("Escolha uma opção: ");
+    }
+
+    // Método intermediário para capturar o valor e chamar o depósito na classe Conta
+    private static void realizarDeposito(Conta conta) {
+        System.out.print("Valor para depósito: ");
+        double valor = sc.nextDouble();
+        conta.depositar(valor);
+    }
+
+    // Método intermediário para capturar o valor e chamar o saque na classe Conta
+    private static void realizarSaque(Conta conta) {
+        System.out.print("Valor para saque: ");
+        double valor = sc.nextDouble();
+        conta.sacar(valor);
+    }
+}
