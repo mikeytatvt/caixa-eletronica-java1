@@ -1,0 +1,503 @@
+# Estrutura dos Arquivos do Projeto
+
+## 1. BancoApp.java
+
+Este arquivo foi utilizado inicialmente para realizar os primeiros testes do sistema em modo console. Nele foram feitos os testes de funcionalidades como saque, depósito, saldo e interação básica do sistema antes da implementação da interface gráfica.
+
+### Código BancoApp.java
+
+```java
+import java.util.*;
+import java.text.SimpleDateFormat;
+
+class Conta {
+    private String nome;
+    private int senha;
+    private double saldo;
+    private List<String> historico;
+
+    public Conta(String nome, int senha, double saldoInicial) {
+        this.nome = nome;
+        this.senha = senha;
+        this.saldo = saldoInicial;
+        this.historico = new ArrayList<>();
+    }
+
+    public String getNome() {
+        return nome;
+    }
+
+    public boolean autenticar(int senha) {
+        return this.senha == senha;
+    }
+
+    private String dataAtual() {
+        return new SimpleDateFormat("dd/MM/yyyy HH:mm").format(new Date());
+    }
+
+    public void depositar(double valor) {
+        if (valor <= 0) {
+            System.out.println("Digite um valor válido para depósito.");
+            return;
+        }
+
+        saldo += valor;
+        historico.add(dataAtual() + " | Depósito de R$ " + formatar(valor));
+        System.out.println("Depósito realizado com sucesso!");
+    }
+
+    public void sacar(double valor) {
+        if (valor <= 0) {
+            System.out.println("Digite um valor válido para saque.");
+            return;
+        }
+
+        if (valor > saldo) {
+            System.out.println("Saldo insuficiente.");
+            return;
+        }
+
+        saldo -= valor;
+        historico.add(dataAtual() + " | Saque de R$ " + formatar(valor));
+        System.out.println("Saque realizado com sucesso!");
+    }
+
+    public void mostrarSaldo() {
+        System.out.println("Seu saldo atual é: R$ " + formatar(saldo));
+    }
+
+    public void mostrarHistorico() {
+        System.out.println("\nHistórico de movimentações:");
+
+        if (historico.isEmpty()) {
+            System.out.println("Nenhuma movimentação realizada ainda.");
+            return;
+        }
+
+        historico.forEach(System.out::println);
+    }
+
+    private String formatar(double valor) {
+        return String.format("%.2f", valor);
+    }
+}
+
+public class BancoApp {
+
+    private static List<Conta> contas = new ArrayList<>();
+    private static Scanner sc = new Scanner(System.in);
+
+    public static void main(String[] args) {
+        iniciarContas();
+
+        System.out.println("=================================");
+        System.out.println("        SISTEMA BANCÁRIO");
+        System.out.println("=================================");
+
+        Conta conta = realizarLogin();
+
+        if (conta != null) {
+            exibirMenu(conta);
+        } else {
+            System.out.println("Não foi possível entrar. Verifique seus dados.");
+        }
+
+        sc.close();
+    }
+
+    private static void iniciarContas() {
+        contas.add(new Conta("Kayky", 1234, 1000));
+        contas.add(new Conta("Teste", 4321, 500));
+    }
+
+    private static Conta realizarLogin() {
+        System.out.print("Nome: ");
+        String nome = sc.nextLine();
+
+        System.out.print("Senha: ");
+        int senha = sc.nextInt();
+        sc.nextLine();
+
+        for (Conta conta : contas) {
+            if (conta.getNome().equalsIgnoreCase(nome) && conta.autenticar(senha)) {
+                return conta;
+            }
+        }
+
+        return null;
+    }
+
+    private static void exibirMenu(Conta conta) {
+        int opcao;
+
+        do {
+            mostrarOpcoes(conta.getNome());
+            opcao = sc.nextInt();
+
+            switch (opcao) {
+                case 1:
+                    conta.mostrarSaldo();
+                    break;
+
+                case 2:
+                    realizarDeposito(conta);
+                    break;
+
+                case 3:
+                    realizarSaque(conta);
+                    break;
+
+                case 4:
+                    conta.mostrarHistorico();
+                    break;
+
+                case 5:
+                    System.out.println("Até logo!");
+                    break;
+
+                default:
+                    System.out.println("Opção inválida.");
+            }
+
+        } while (opcao != 5);
+    }
+
+    private static void mostrarOpcoes(String nome) {
+        System.out.println("\n---------------------------------");
+        System.out.println("Olá, " + nome + "! O que deseja fazer?");
+        System.out.println("1 - Ver saldo");
+        System.out.println("2 - Depositar");
+        System.out.println("3 - Sacar");
+        System.out.println("4 - Ver histórico");
+        System.out.println("5 - Sair");
+        System.out.print("Escolha uma opção: ");
+    }
+
+    private static void realizarDeposito(Conta conta) {
+        System.out.print("Valor para depósito: ");
+        double valor = sc.nextDouble();
+        conta.depositar(valor);
+    }
+
+    private static void realizarSaque(Conta conta) {
+        System.out.print("Valor para saque: ");
+        double valor = sc.nextDouble();
+        conta.sacar(valor);
+    }
+}
+```
+
+---
+
+## 2. CaixaEletronico.java
+
+Este é o principal arquivo do sistema. Ele contém toda a lógica de funcionamento do caixa eletrônico, incluindo:
+
+* Controle das cédulas disponíveis;
+* Realização de saques;
+* Controle da cota mínima;
+* Reposição de cédulas;
+* Cálculo do valor total disponível;
+* Histórico de transações;
+* Regras de validação do sistema.
+
+Além disso, esta classe implementa a interface `ICaixaEletronico`, seguindo o contrato definido pelo projeto.
+
+### Código CaixaEletronico.java
+
+```java
+
+public class CaixaEletronico implements ICaixaEletronico {
+	
+    // matriz 6x2
+    // coluna 0 = valor da cédula
+    // coluna 1 = quantidade disponível
+
+    private int[][] cedulas = {
+        {100, 100},
+        {50, 200},
+        {20, 300},
+        {10, 350},
+        {5, 450},
+        {2, 500}
+    };
+
+    private int cotaMinima = 1000;
+    
+    private String historico = "";
+    
+    @Override
+    public String pegaValorTotalDisponivel() {
+        int total = 0;
+
+        for (int i = 0; i < cedulas.length; i++) {
+            total += cedulas[i][0] * cedulas[i][1];
+        }
+
+        return "Valor total disponível no caixa: R$ " + total;
+    }
+
+    @Override
+    public String sacar(Integer valor) {
+
+        int valorOriginal = valor;
+        int[] notasSacadas = new int[6];
+        int totalCedulas = 0;
+
+        for (int i = 0; i < cedulas.length; i++) {
+
+            int nota = cedulas[i][0];
+            int quantidadeDisponivel = cedulas[i][1];
+
+            while (valor >= nota && quantidadeDisponivel > 0) {
+
+                valor -= nota;
+                quantidadeDisponivel--;
+                notasSacadas[i]++;
+                totalCedulas++;
+            }
+
+            }
+
+            if (valor != 0) {
+                return "Saque não realizado por falta de cédulas.";
+            }
+
+            if (totalCedulas > 30) {
+                return "Saque não permitido. Limite de 30 cédulas excedido.";
+            }
+            
+            for (int i = 0; i < cedulas.length; i++) {
+
+                cedulas[i][1] -= notasSacadas[i];
+            }
+
+            String resposta = "Saque realizado com sucesso!\n\n";
+
+            for (int i = 0; i < notasSacadas.length; i++) {
+
+                if (notasSacadas[i] > 0) {
+
+                    resposta += "R$ "
+                            + cedulas[i][0]
+                            + " -> "
+                            + notasSacadas[i]
+                            + " notas\n";
+                }
+            }
+
+            resposta += "\nTotal de cédulas: " + totalCedulas;
+
+            if (calcularTotalCaixa() < cotaMinima) {
+                resposta += "\n\nCaixa Vazio: Chame o Operador";
+            }
+
+            historico += "Saque de R$ " + valorOriginal 
+                    + " | Saldo atual do caixa: R$ " + calcularTotalCaixa() + "\n";
+            
+            return resposta;
+        }
+    
+    @Override
+    public String pegaRelatorioCedulas() {
+        String resposta = "";
+
+        for (int i = 0; i < cedulas.length; i++) {
+            resposta += "Cédula R$ " + cedulas[i][0] 
+                     + " - Quantidade: " + cedulas[i][1] + "\n";
+        }
+
+        return resposta;
+    }
+    
+
+    @Override
+    public String reposicaoCedulas(Integer cedula, Integer quantidade) {
+
+        for (int i = 0; i < cedulas.length; i++) {
+
+            if (cedulas[i][0] == cedula) {
+
+                cedulas[i][1] += quantidade;
+
+                return "Reposição realizada com sucesso!";
+            }
+        }
+
+        return "Cédula inválida.";
+    }
+
+    @Override
+    public String armazenaCotaMinima(Integer minimo) {
+
+        cotaMinima = minimo;
+
+        return "Cota mínima armazenada com sucesso!";
+    }  
+        private int calcularTotalCaixa() {
+            int total = 0;
+
+            for (int i = 0; i < cedulas.length; i++) {
+                total += cedulas[i][0] * cedulas[i][1];
+            }
+
+            return total;
+        }
+            public String pegarHistorico() {
+                if (historico.equals("")) {
+                    return "Nenhuma transação realizada.";
+                }
+
+                return "Histórico de transações:\n\n" + historico;
+            }
+    
+        public static void main(String[] args) {
+
+            GUI janela = new GUI(CaixaEletronico.class);
+            janela.show();
+        }
+    }
+
+
+
+
+```
+
+---
+
+## 3. ICaixaEletronico.java
+
+Este arquivo representa a interface do sistema, funcionando como um contrato de implementação. Nele são definidos todos os métodos obrigatórios que a classe `CaixaEletronico` deve possuir para garantir o funcionamento correto do sistema.
+
+Os principais métodos definidos são:
+
+* saque;
+* relatório de cédulas;
+* valor total disponível;
+* reposição de cédulas;
+* armazenamento da cota mínima.
+
+### Código ICaixaEletronico.java
+
+```java
+public interface ICaixaEletronico {
+
+    public String pegaValorTotalDisponivel();
+
+    public String sacar(Integer valor);
+
+    public String pegaRelatorioCedulas();
+
+    public String reposicaoCedulas(Integer cedula, Integer quantidade);
+
+    public String armazenaCotaMinima(Integer minimo);
+}
+```
+
+---
+
+## 4. GUI.java
+
+Este arquivo contém toda a interface gráfica do projeto utilizando Java Swing. Ele é responsável pela criação das janelas, botões e interação visual do usuário com o caixa eletrônico.
+
+Através da interface gráfica, o usuário consegue:
+
+* realizar saques;
+* visualizar o relatório de cédulas;
+* consultar o valor total disponível;
+* realizar reposição de cédulas;
+* definir a cota mínima;
+* visualizar o histórico de transações ao sair do sistema.
+
+### Código GUI.java
+```java
+import javax.swing.*;
+import java.awt.*;
+
+public class GUI extends JFrame {
+
+    private static final long serialVersionUID = 1L;
+    private ICaixaEletronico caixa;
+
+    public GUI(Class<?> classeCaixa) {
+        try {
+            caixa = (ICaixaEletronico) classeCaixa.getDeclaredConstructor().newInstance();
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null, "Erro ao criar o caixa eletrônico.");
+        }
+
+        setTitle("Caixa eletrônico");
+        setSize(260, 300);
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(new GridLayout(9, 1, 5, 5));
+
+        JLabel cliente = new JLabel("Módulo do Cliente:");
+        JButton btnSaque = new JButton("Efetuar Saque");
+
+        JLabel administrador = new JLabel("Módulo do Administrador:");
+        JButton btnRelatorio = new JButton("Relatório de Cédulas");
+        JButton btnValorTotal = new JButton("Valor total disponível");
+        JButton btnReposicao = new JButton("Reposição de Cédulas");
+        JButton btnCotaMinima = new JButton("Cota Mínima");
+
+        JLabel ambos = new JLabel("Módulo de Ambos:");
+        JButton btnSair = new JButton("Sair");
+
+        add(cliente);
+        add(btnSaque);
+        add(administrador);
+        add(btnRelatorio);
+        add(btnValorTotal);
+        add(btnReposicao);
+        add(btnCotaMinima);
+        add(ambos);
+        add(btnSair);
+
+        btnSaque.addActionListener(e -> efetuarSaque());
+        btnRelatorio.addActionListener(e -> mostrarMensagem(caixa.pegaRelatorioCedulas()));
+        btnValorTotal.addActionListener(e -> mostrarMensagem(caixa.pegaValorTotalDisponivel()));
+        btnReposicao.addActionListener(e -> reporCedulas());
+        btnCotaMinima.addActionListener(e -> definirCotaMinima());
+        btnSair.addActionListener(e -> {
+            CaixaEletronico caixaReal = (CaixaEletronico) caixa;
+            mostrarMensagem(caixaReal.pegarHistorico());
+            System.exit(0);
+        });
+    }
+
+    private void efetuarSaque() {
+        String valorTexto = JOptionPane.showInputDialog(this, "Digite o valor do saque:");
+
+        if (valorTexto != null) {
+            int valor = Integer.parseInt(valorTexto);
+            mostrarMensagem(caixa.sacar(valor));
+        }
+    }
+
+    private void reporCedulas() {
+        String cedulaTexto = JOptionPane.showInputDialog(this, "Digite a cédula para reposição:");
+        String quantidadeTexto = JOptionPane.showInputDialog(this, "Digite a quantidade:");
+
+        if (cedulaTexto != null && quantidadeTexto != null) {
+            int cedula = Integer.parseInt(cedulaTexto);
+            int quantidade = Integer.parseInt(quantidadeTexto);
+
+            mostrarMensagem(caixa.reposicaoCedulas(cedula, quantidade));
+        }
+    }
+
+    private void definirCotaMinima() {
+        String minimoTexto = JOptionPane.showInputDialog(this, "Digite a cota mínima:");
+
+        if (minimoTexto != null) {
+            int minimo = Integer.parseInt(minimoTexto);
+            mostrarMensagem(caixa.armazenaCotaMinima(minimo));
+        }
+    }
+
+    private void mostrarMensagem(String mensagem) {
+        JOptionPane.showMessageDialog(this, mensagem);
+    }
+}
+```
